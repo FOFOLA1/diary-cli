@@ -1,0 +1,66 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build tools (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            make
+            mingw-w64-x86_64-gcc
+
+      - name: Set executable name and path
+        id: set-names
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            echo "ASSET_NAME=Diary-CLI_windows.exe" >> $GITHUB_ENV
+            echo "ASSET_PATH=Diary-CLI_windows.exe" >> $GITHUB_ENV
+          elif [ "${{ runner.os }}" == "macOS" ]; then
+            echo "ASSET_NAME=Diary-CLI_macos" >> $GITHUB_ENV
+            echo "ASSET_PATH=Diary-CLI_macos" >> $GITHUB_ENV
+          else
+            echo "ASSET_NAME=Diary-CLI_linux" >> $GITHUB_ENV
+            echo "ASSET_PATH=Diary-CLI_linux" >> $GITHUB_ENV
+          fi
+
+      - name: Build project (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          make TARGET=${{ env.ASSET_NAME }}
+
+      - name: Build project (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          make TARGET=${{ env.ASSET_NAME }}
+
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release ${{ github.run_number }}
+          files: ./${{ env.ASSET_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

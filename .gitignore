@@ -1,0 +1,5 @@
+*.o
+out
+diary.json
+*.exe
+a.out
